@@ -11,9 +11,9 @@ import { extractTextFromFile } from "@/lib/documents";
 import { createEmbedding, toVectorLiteral } from "@/lib/embeddings";
 import { generateAnswer } from "@/lib/deepseek";
 import { searchRelevantChunks } from "@/lib/rag";
-import { verifyPassword } from "@/lib/password";
+import { hashPassword, verifyPassword } from "@/lib/password";
 import { z } from "zod";
-import { aiSettingsSchema, articleSchema, chatSchema, loginSchema, systemSchema, ticketSchema } from "@/lib/validation";
+import { aiSettingsSchema, articleSchema, chatSchema, loginSchema, signupSchema, systemSchema, ticketSchema } from "@/lib/validation";
 
 function formString(formData: FormData, key: string) { return String(formData.get(key) || ""); }
 
@@ -23,6 +23,31 @@ export async function loginAction(formData: FormData) {
   const [user] = await db.select().from(users).where(eq(users.email, parsed.data.email.toLowerCase())).limit(1);
   if (!user || !verifyPassword(parsed.data.password, user.passwordHash)) redirect("/login?error=credentials");
   await setSession(user.id);
+  redirect("/dashboard");
+}
+
+export async function signupAction(formData: FormData) {
+  const parsed = signupSchema.safeParse({
+    name: formString(formData, "name"),
+    email: formString(formData, "email"),
+    password: formString(formData, "password"),
+    confirmPassword: formString(formData, "confirmPassword")
+  });
+
+  if (!parsed.success) redirect("/login?mode=signup&error=signup-invalid");
+
+  const email = parsed.data.email.toLowerCase();
+  const [existingUser] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+  if (existingUser) redirect("/login?mode=signup&error=email-exists");
+
+  const [createdUser] = await db.insert(users).values({
+    name: parsed.data.name.trim(),
+    email,
+    passwordHash: hashPassword(parsed.data.password),
+    role: "viewer"
+  }).returning({ id: users.id });
+
+  await setSession(createdUser.id);
   redirect("/dashboard");
 }
 

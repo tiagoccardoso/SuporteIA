@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const loginSchema = z.object({ email: z.string().email(), password: z.string().min(8) });
+export const signupSchema = z.object({ name: z.string().min(2), email: z.string().email(), password: z.string().min(8), confirmPassword: z.string().min(8) }).refine((data) => data.password === data.confirmPassword, { path: ["confirmPassword"], message: "As senhas devem ser iguais" });
 export const systemSchema = z.object({ name: z.string().min(2), slug: z.string().min(2).regex(/^[a-z0-9-]+$/), description: z.string().optional(), status: z.enum(["active", "inactive"]) });
 export const articleSchema = z.object({ title: z.string().min(4), content: z.string().min(20), systemId: z.string().uuid(), category: z.string().min(2), tags: z.string().optional(), status: z.enum(["draft", "published", "archived"]) });
 export const chatSchema = z.object({ question: z.string().min(5), systemId: z.string().uuid(), sessionId: z.string().uuid().optional() });
